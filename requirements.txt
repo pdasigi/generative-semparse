@@ -1,1 +1,3 @@
 allennlp
+pylint==1.9.4
+mypy==0.521

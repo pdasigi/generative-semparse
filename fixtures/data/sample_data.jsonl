@@ -1,0 +1,2 @@
+{"id": "nt-829", "question": "who was appointed before h.w. whillock?", "table_filename": "csv/203-csv/93.csv", "logical_form": "(select_string (previous (filter_in all_rows string_column:incumbent string:h_w_whillock)) string_column:incumbent)"}
+{"id": "nt-1267", "question": "which communities have at least 100 people?", "table_filename": "csv/204-csv/251.csv", "logical_form": "(select_string (filter_number_greater_equals all_rows number_column:population 100) string_column:community)"}

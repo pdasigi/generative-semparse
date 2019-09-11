@@ -3,11 +3,13 @@ from typing import List, Dict
 import random
 import os
 import gzip
+import json
 
 from allennlp.data.dataset_readers.semantic_parsing.wikitables import util as wtq_util
 
 
 MAX_NUM_LOGICAL_FORMS_TO_SHOW = 15
+
 
 def main(examples_file: str,
          tables_directory: str,
@@ -23,7 +25,7 @@ def main(examples_file: str,
     if os.path.exists(output_file):
         with open(output_file) as output_file_for_reading:
             for line in output_file_for_reading:
-                example_id, _ = line.strip().split("\t")
+                example_id = json.loads(line)["id"]
                 processed_examples.add(example_id)
 
     with open(output_file, "a") as output_file_for_appending:
@@ -33,9 +35,10 @@ def main(examples_file: str,
                 # We've already labeled this example
                 continue
             question = example["question"]
-            table_filename = os.path.join(tables_directory, example["table_filename"])
+            table_filename = example["table_filename"]
+            full_table_filename = os.path.join(tables_directory, table_filename)
             table_lines = []
-            with open(table_filename.replace(".csv", ".tsv")) as table_file:
+            with open(full_table_filename.replace(".csv", ".tsv")) as table_file:
                 table_lines = table_file.readlines()
             logical_forms_file = os.path.join(logical_forms_directory, f"{example_id}.gz")
             if not os.path.exists(logical_forms_file):
@@ -55,11 +58,19 @@ def main(examples_file: str,
                     if user_input == "s":
                         break
                     elif user_input == "y":
-                        print(f"{example_id}\t{logical_form}", file=output_file_for_appending)
+                        instance_output = {"id": example_id,
+                                           "question": question,
+                                           "table_filename": table_filename,
+                                           "logical_form": logical_form}
+                        print(json.dumps(instance_output), file=output_file_for_appending)
                         break
                     elif user_input == "w":
                         correct_logical_form = input("Enter correct logical form: ")
-                        print(f"{example_id}\t{correct_logical_form}", file=output_file_for_appending)
+                        instance_output = {"id": example_id,
+                                           "question": question,
+                                           "table_filename": table_filename,
+                                           "logical_form": correct_logical_form}
+                        print(json.dumps(instance_output), file=output_file_for_appending)
                         break
                     if i >= MAX_NUM_LOGICAL_FORMS_TO_SHOW:
                         break
