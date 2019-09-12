@@ -18,6 +18,8 @@ from allennlp.semparse import ParsingError
 from allennlp.semparse.contexts import TableQuestionContext
 from allennlp.semparse.domain_languages import WikiTablesLanguage
 
+from gensem.readers import utils as reader_utils
+
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -86,6 +88,8 @@ class WikiTablesBackTranslationDatasetReader(DatasetReader):
         action_sequence_field: Field = None
         try:
             action_sequence = world.logical_form_to_action_sequence(logical_form)
+            action_sequence = reader_utils.make_bottom_up_action_sequence(action_sequence,
+                                                                          world.is_nonterminal)
             index_fields: List[Field] = []
             for production_rule in action_sequence:
                 index_fields.append(IndexField(action_map[production_rule], action_field))

@@ -27,11 +27,11 @@ def make_bottom_up_action_sequence(top_down_sequence: List[str],
         # We see the left side at the top now. We pop it.
         nonterminal_stack = nonterminal_stack[:-1]
         #Now we can process the right side.
-        if not is_nonterminal(right_side):
+        if not is_nonterminal(right_side) and not right_side[0] == '[':
             # We output the current action. It does not need to go on the stack.
             bottom_up_sequence.append(action)
         else:
-            if "[" in right_side:
+            if right_side[0] == '[':
                 right_side_list = get_nonterminals_from_list(right_side)
             else:
                 right_side_list = [right_side]
