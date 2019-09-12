@@ -6,7 +6,7 @@ from allennlp.semparse.domain_languages import WikiTablesLanguage
 
 from gensem.dataset_reader import WikiTablesBackTranslationDatasetReader
 
-class WikiTablesBackTranslationDatasetReaderTest(AllenNlpTestCase):
+class TestWikiTablesBackTranslationDatasetReader(AllenNlpTestCase):
     def test_reader_reads(self):
         params = {
                 'lazy': False,
