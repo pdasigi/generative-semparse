@@ -14,7 +14,6 @@ class TestRnnGrammarStatelet(AllenNlpTestCase):
         # Passing None for valid actions.
         grammar_state = RnnGrammarStatelet(['@start@'],
                                            [initial_rnn_state],
-                                           None,
                                            is_nonterminal)
         action_rnn_state_mapping = {'@start@ -> S': object(),
                                     'S -> [A, B]': object(),
