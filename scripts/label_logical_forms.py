@@ -1,5 +1,5 @@
 import argparse
-from typing import List, Dict
+from typing import List, Dict, Set
 import random
 import os
 import gzip
@@ -77,7 +77,8 @@ def main(examples_file: str,
 
 
 if __name__ == "__main__":
-    argparser = argparse.ArgumentParser("""Interface for collecting binary labels for utterance-lf pairs for WTQ""")
+    # pylint: disable=invalid-name
+    argparser = argparse.ArgumentParser("""Interface for collecting binary labels for question-lf pairs for WTQ""")
     argparser.add_argument("--examples", required=True, type=str, help="Path to the examples file")
     argparser.add_argument("--tables", required=True, type=str, help="Path to the tables directory")
     argparser.add_argument("--lfs", required=True, type=str,
