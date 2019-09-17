@@ -37,11 +37,19 @@ class TestRnnGrammarStatelet(AllenNlpTestCase):
         with pytest.raises(AssertionError):
             grammar_state.get_child_rnn_states("S -> [A, B]")
 
-        grammar_state = RnnGrammarState([("B", self.action_rnn_state_mapping["B -> b"]),
-                                         ("A", self.action_rnn_state_mapping["A -> a"])],
+        grammar_state = RnnGrammarState([("A", self.action_rnn_state_mapping["A -> a"]),
+                                         ("B", self.action_rnn_state_mapping["B -> b"])],
                                         is_nonterminal)
         child_rnn_states = grammar_state.get_child_rnn_states("S -> [A, B]")
-        assert child_rnn_states == [self.action_rnn_state_mapping["A -> a"],
-                                    self.action_rnn_state_mapping["B -> b"]]
+        assert child_rnn_states == [self.action_rnn_state_mapping["B -> b"],
+                                    self.action_rnn_state_mapping["A -> a"]]
         with pytest.raises(AssertionError):
             grammar_state.get_child_rnn_states("S -> [B, A]")
+
+    def test_update_followed_by_get_states(self):
+        grammar_state = RnnGrammarState([], is_nonterminal)
+        grammar_state = grammar_state.update('A -> a', self.action_rnn_state_mapping['A -> a'])
+        grammar_state = grammar_state.update('B -> b', self.action_rnn_state_mapping['B -> b'])
+        child_states = grammar_state.get_child_rnn_states('S -> [A, B]')
+        assert child_states == [self.action_rnn_state_mapping['B -> b'],
+                                self.action_rnn_state_mapping['A -> a']]

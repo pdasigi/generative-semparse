@@ -40,9 +40,13 @@ class RnnGrammarState:
         left_side, nonterminals_to_close = self._get_nonterminals_from_rule(production_rule)
 
         if nonterminals_to_close:
-            assert len(self._nonterminal_stack) >= len(nonterminals_to_close)
+            assert len(self._nonterminal_stack) >= len(nonterminals_to_close), \
+                    f"Too many nonterminals! Cannot update with {production_rule}"
             # We need to do some popping. But we make sure the production is valid first.
-            assert [x[0] for x in self._nonterminal_stack[-len(nonterminals_to_close):]] == nonterminals_to_close
+            num_nonterminals = len(nonterminals_to_close)
+            stack_nonterminals = [x[0] for x in self._nonterminal_stack[-num_nonterminals:]]
+            assert stack_nonterminals == nonterminals_to_close, \
+                   f"Mismatched nonterminals! Rule is {production_rule}. Stack has {stack_nonterminals}"
             new_stack = self._nonterminal_stack[:-len(nonterminals_to_close)]
         else:
             new_stack = list(self._nonterminal_stack)
@@ -61,10 +65,12 @@ class RnnGrammarState:
         if not right_nonterminals:
             return None
 
-        assert len(self._nonterminal_stack) >= len(right_nonterminals)
+        assert len(self._nonterminal_stack) >= len(right_nonterminals), \
+                f"Too many nonterminals! Cannot get child rnn states for {production_rule}"
         child_rnn_states = []
-        for i, nonterminal in enumerate(right_nonterminals):
+        for i, nonterminal in enumerate(reversed(right_nonterminals)):
             stack_info = self._nonterminal_stack[-(i+1)]
-            assert nonterminal == stack_info[0]
+            assert nonterminal == stack_info[0], \
+                    f"Mismatched nonterminals! {production_rule} had {nonterminal}, expected {stack_info[0]}"
             child_rnn_states.append(stack_info[1])
         return child_rnn_states
