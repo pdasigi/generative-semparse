@@ -2,8 +2,8 @@
   "dataset_reader": {
     "type": "wikitables-question-generator",
     "tables_directory": "fixtures/data/tables",
-    "output_production_rules": true,
-    "output_world": true
+    "output_production_rules": false,
+    "output_world": false
   },
   "train_data_path": "fixtures/data/sample_data.jsonl",
   "validation_data_path": "fixtures/data/sample_data.jsonl",
@@ -19,11 +19,12 @@
       }
     },
     "encoder": {
-      "type": "tree_lstm",
-      "input_dim": 25,
-      "output_dim": 10
+      "type": "lstm",
+      "input_size": 25,
+      "hidden_size": 10,
+      "num_layers": 1
     },
-    "encode_trees": true,
+    "encode_trees": false,
     "max_decoding_steps": 20,
     "target_embedding_dim": 30,
     "target_namespace": "tokens",

@@ -13,3 +13,7 @@ class TestWikiTablesQuestionGenerator(ModelTestCase):
     @flaky
     def test_model_can_train_save_and_load(self):
         self.ensure_model_can_train_save_and_load(self.param_file)
+
+    @flaky
+    def test_simple_seq2seq_can_train_save_and_load(self):
+        self.ensure_model_can_train_save_and_load("fixtures/simple-seq2seq-experiment.json") 
