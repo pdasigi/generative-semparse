@@ -1,6 +1,7 @@
 # pylint: disable=no-self-use
 
 from allennlp.common import Params
+from allennlp.common.util import START_SYMBOL, END_SYMBOL
 from allennlp.common.testing import AllenNlpTestCase
 from allennlp.semparse.domain_languages import WikiTablesLanguage
 
@@ -19,14 +20,15 @@ class TestWikiTablesBackTranslationDatasetReader(AllenNlpTestCase):
         instance = instances[0]
 
         assert instance.fields.keys() == {
-                'question',
+                'source_tokens',
+                'target_tokens',
                 'world',
                 'actions',
-                'action_sequence',
                 }
 
-        question_tokens = ["who", "was", "appointed", "before", "h.w", ".", "whillock", "?"]
-        assert [t.text for t in instance.fields["question"].tokens] == question_tokens
+        question_tokens = [START_SYMBOL, "who", "was", "appointed", "before", "h.w", ".", "whillock", "?",
+                           END_SYMBOL]
+        assert [t.text for t in instance.fields["target_tokens"].tokens] == question_tokens
 
         # The content of this will be tested indirectly by checking the actions; we'll just make
         # sure we get a WikiTablesWorld object in here.
@@ -35,18 +37,17 @@ class TestWikiTablesBackTranslationDatasetReader(AllenNlpTestCase):
         action_fields = instance.fields['actions'].field_list
         actions = [action_field.rule for action_field in action_fields]
 
-        action_sequence = instance.fields["action_sequence"]
-        action_indices = [l.sequence_index for l in action_sequence.field_list]
-        actions = [actions[i] for i in action_indices]
         # Actions in bottom-up order.
-        assert actions == ['<List[Row],StringColumn:List[str]> -> select_string',
-                           '<List[Row]:List[Row]> -> previous',
-                           '<List[Row],StringColumn,List[str]:List[Row]> -> filter_in',
-                           'List[Row] -> all_rows',
-                           'StringColumn -> string_column:incumbent',
-                           'List[str] -> string:h_w_whillock',
-                           'List[Row] -> [<List[Row],StringColumn,List[str]:List[Row]>, List[Row], StringColumn, List[str]]',  # pylint: disable=line-too-long
-                           'List[Row] -> [<List[Row]:List[Row]>, List[Row]]',
-                           'StringColumn -> string_column:incumbent',
-                           'List[str] -> [<List[Row],StringColumn:List[str]>, List[Row], StringColumn]',
-                           '@start@ -> List[str]']
+        expected_sequence = ['<List[Row],StringColumn:List[str]> -> select_string',
+                             '<List[Row]:List[Row]> -> previous',
+                             '<List[Row],StringColumn,List[str]:List[Row]> -> filter_in',
+                             'List[Row] -> all_rows',
+                             'StringColumn -> string_column:incumbent',
+                             'List[str] -> string:h_w_whillock',
+                             'List[Row] -> [<List[Row],StringColumn,List[str]:List[Row]>, List[Row], StringColumn, List[str]]',  # pylint: disable=line-too-long
+                             'List[Row] -> [<List[Row]:List[Row]>, List[Row]]',
+                             'StringColumn -> string_column:incumbent',
+                             'List[str] -> [<List[Row],StringColumn:List[str]>, List[Row], StringColumn]',
+                             '@start@ -> List[str]']
+        assert actions == expected_sequence
+        assert [t.text for t in instance.fields["source_tokens"].tokens] == expected_sequence

@@ -33,8 +33,8 @@ class TestTreeLSTM(AllenNlpTestCase):
         tree_lstm = TreeLSTM(input_dim, output_dim)
         inputs = torch.FloatTensor(batch_size, sequence_length, input_dim)
         mask = torch.LongTensor([[0, 0, 0, 1], [0, 1, 1, 1]])
-        production_rules = [['@PADDING@', '@PADDING@', '@PADDING@', 'A -> a'],
-                            ['@PADDING@', 'A -> a', 'S -> A', '@start@ -> S']]
+        production_rules = [['A -> a'],
+                            ['A -> a', 'S -> A', '@start@ -> S']]
         is_nonterminal = lambda x: x.isupper() or x == '@start@'
         outputs = tree_lstm(inputs, mask, production_rules, is_nonterminal)
         assert outputs.size() == (batch_size, sequence_length, output_dim)

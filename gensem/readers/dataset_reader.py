@@ -5,11 +5,12 @@ import json
 
 from overrides import overrides
 
+from allennlp.common.util import START_SYMBOL, END_SYMBOL
 from allennlp.data.instance import Instance
 from allennlp.data.fields import (Field, TextField, MetadataField, ProductionRuleField,
-                                  ListField, IndexField)
+                                  ListField)
 from allennlp.data.dataset_readers.dataset_reader import DatasetReader
-from allennlp.data.tokenizers import WordTokenizer
+from allennlp.data.tokenizers import WordTokenizer, Token
 from allennlp.data.tokenizers.tokenizer import Tokenizer
 from allennlp.data.tokenizers.word_splitter import SpacyWordSplitter
 from allennlp.data.token_indexers import SingleIdTokenIndexer
@@ -20,23 +21,28 @@ from allennlp.semparse.domain_languages import WikiTablesLanguage
 
 from gensem.readers import utils as reader_utils
 
-
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
-@DatasetReader.register("wikitables-back-translate")
+@DatasetReader.register("wikitables-back-translator")
 class WikiTablesBackTranslationDatasetReader(DatasetReader):
     def __init__(self,
                  lazy: bool = False,
                  tables_directory: str = None,
                  offline_logical_forms_directory: str = None,
                  tokenizer: Tokenizer = None,
-                 question_token_indexers: Dict[str, TokenIndexer] = None) -> None:
+                 question_token_indexers: Dict[str, TokenIndexer] = None,
+                 rule_indexers: Dict[str, TokenIndexer] = None,
+                 output_production_rules: bool = True,
+                 output_world: bool = True) -> None:
         super().__init__(lazy=lazy)
         self._tables_directory = tables_directory
         self._offline_logical_forms_directory = offline_logical_forms_directory
         self._tokenizer = tokenizer or WordTokenizer(SpacyWordSplitter(pos_tags=True))
-        self._question_token_indexers = question_token_indexers or {"tokens": SingleIdTokenIndexer()}
+        self._question_token_indexers = question_token_indexers or {"tokens": SingleIdTokenIndexer("tokens")}
+        self._rule_indexers = rule_indexers or {"tokens": SingleIdTokenIndexer("rules")}
+        self._output_production_rules = output_production_rules
+        self._output_world = output_world
 
     @overrides
     def _read(self, file_path: str):
@@ -56,9 +62,9 @@ class WikiTablesBackTranslationDatasetReader(DatasetReader):
                                               line_data["table_filename"].replace("csv", "tagged"))
 
                 table_lines = [line.split("\t") for line in open(table_filename).readlines()]
-                instance = self.text_to_instance(question=question,
+                instance = self.text_to_instance(logical_form=logical_form,
                                                  table_lines=table_lines,
-                                                 logical_form=logical_form)
+                                                 question=question)
                 if instance is not None:
                     yield instance
 
@@ -68,52 +74,47 @@ class WikiTablesBackTranslationDatasetReader(DatasetReader):
                          question: str) -> Instance:
         # pylint: disable=arguments-differ
         tokenized_question = self._tokenizer.tokenize(question.lower())
+        tokenized_question.insert(0, Token(START_SYMBOL))
+        tokenized_question.append(Token(END_SYMBOL))
         question_field = TextField(tokenized_question, self._question_token_indexers)
         table_context = TableQuestionContext.read_from_lines(table_lines, tokenized_question)
         world = WikiTablesLanguage(table_context)
-        world_field = MetadataField(world)
-        production_rule_fields: List[Field] = []
-        for production_rule in world.all_possible_productions():
-            _, rule_right_side = production_rule.split(' -> ')
-            is_global_rule = not world.is_instance_specific_entity(rule_right_side)
-            field = ProductionRuleField(production_rule, is_global_rule=is_global_rule)
-            production_rule_fields.append(field)
-        action_field = ListField(production_rule_fields)
 
-        # We'll make each target action sequence a List[IndexField], where the index is into
-        # the action list we made above.  We need to ignore the type here because mypy doesn't
-        # like `action.rule` - it's hard to tell mypy that the ListField is made up of
-        # ProductionRuleFields.
-        action_map = {action.rule: i for i, action in enumerate(action_field.field_list)}  # type: ignore
-        action_sequence_field: Field = None
+        action_sequence = None
         try:
             action_sequence = world.logical_form_to_action_sequence(logical_form)
             action_sequence = reader_utils.make_bottom_up_action_sequence(action_sequence,
                                                                           world.is_nonterminal)
-            index_fields: List[Field] = []
-            for production_rule in action_sequence:
-                index_fields.append(IndexField(action_map[production_rule], action_field))
-            action_sequence_field = ListField(index_fields)
+            action_sequence_field = TextField([Token(rule) for rule in  action_sequence],
+                                              self._rule_indexers)
         except ParsingError as error:
             logger.debug(f'Parsing error: {error.message}, skipping logical form')
             logger.debug(f'Question was: {question}')
             logger.debug(f'Logical form was: {logical_form}')
             logger.debug(f'Table info was: {table_lines}')
-        except KeyError as error:
-            logger.debug(f'Missing production rule: {error.args}, skipping logical form')
-            logger.debug(f'Question was: {question}')
-            logger.debug(f'Table info was: {table_lines}')
-            logger.debug(f'Logical form was: {logical_form}')
         except:
             logger.error(logical_form)
             raise
 
-        if not action_sequence_field:
+        if not action_sequence:
             return None
 
-        fields = {'question': question_field,
-                  'world': world_field,
-                  'actions': action_field,
-                  'action_sequence': action_sequence_field}
+        # Not very happy about calling the action sequence field "source_tokens", but doing so to make these
+        # instances compatible with SimpleSeq2Seq.
+        fields = {'source_tokens': action_sequence_field,
+                  'target_tokens': question_field}
+
+        if self._output_world:
+            fields['world'] = MetadataField(world)
+
+        if self._output_production_rules:
+            production_rule_fields: List[Field] = []
+            for production_rule in action_sequence:
+                _, rule_right_side = production_rule.split(' -> ')
+                is_global_rule = not world.is_instance_specific_entity(rule_right_side)
+                field = ProductionRuleField(production_rule, is_global_rule=is_global_rule)
+                production_rule_fields.append(field)
+            action_field = ListField(production_rule_fields)
+            fields['actions'] = action_field
 
         return Instance(fields)

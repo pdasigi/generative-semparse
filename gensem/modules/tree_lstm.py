@@ -64,11 +64,13 @@ class TreeLSTM(Seq2SeqEncoder):
         batch_size, _, _ = inputs.size()
         for i in range(batch_size):
             instance_outputs: List[torch.Tensor] = []
-            for input_, input_mask, production_rule in zip(inputs[i], mask[i], production_rules[i]):
+            rule_index = 0
+            for input_, input_mask in zip(inputs[i], mask[i]):
                 if not input_mask:
                     instance_outputs.append(input_.new(torch.zeros(self.get_output_dim())))
                     continue
-
+                production_rule = production_rules[i][rule_index]
+                rule_index += 1
                 child_rnn_states = grammar_state.get_child_rnn_states(production_rule)
                 if child_rnn_states is None:
                     # (1, output_dim)
