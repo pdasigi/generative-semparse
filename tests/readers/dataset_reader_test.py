@@ -5,7 +5,7 @@ from allennlp.common.util import START_SYMBOL, END_SYMBOL
 from allennlp.common.testing import AllenNlpTestCase
 from allennlp.semparse.domain_languages import WikiTablesLanguage
 
-from gensem.readers.dataset_reader import WikiTablesBackTranslationDatasetReader
+from gensem.readers.dataset_reader import WikiTablesQuestionGeneratorReader
 
 class TestWikiTablesBackTranslationDatasetReader(AllenNlpTestCase):
     def test_reader_reads(self):
@@ -13,7 +13,7 @@ class TestWikiTablesBackTranslationDatasetReader(AllenNlpTestCase):
                 'lazy': False,
                 'tables_directory': "fixtures/data/tables",
                 }
-        reader = WikiTablesBackTranslationDatasetReader.from_params(Params(params))
+        reader = WikiTablesQuestionGeneratorReader.from_params(Params(params))
         dataset = reader.read("fixtures/data/sample_data.jsonl")
         instances = list(dataset)
         assert len(instances) == 2

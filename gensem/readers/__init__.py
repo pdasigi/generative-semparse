@@ -1,0 +1,1 @@
+from gensem.readers.dataset_reader import WikiTablesQuestionGeneratorReader

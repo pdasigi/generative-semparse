@@ -24,8 +24,8 @@ from gensem.readers import utils as reader_utils
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
-@DatasetReader.register("wikitables-back-translator")
-class WikiTablesBackTranslationDatasetReader(DatasetReader):
+@DatasetReader.register("wikitables-question-generator")
+class WikiTablesQuestionGeneratorReader(DatasetReader):
     def __init__(self,
                  lazy: bool = False,
                  tables_directory: str = None,
