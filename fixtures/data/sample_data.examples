@@ -1,0 +1,2 @@
+(example (id nt-829) (utterance "who was appointed before h.w. whillock?") (context (graph tables.TableKnowledgeGraph csv/203-csv/93.csv)) (targetValue (list (description "Byron E. Hyatt"))))
+(example (id nt-1267) (utterance "which communities have at least 100 people?") (context (graph tables.TableKnowledgeGraph csv/204-csv/251.csv)) (targetValue (list (description "Cole Harbour 30") (description "Millbrook 27"))))
