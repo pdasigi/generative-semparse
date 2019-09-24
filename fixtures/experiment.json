@@ -2,11 +2,12 @@
   "dataset_reader": {
     "type": "wikitables-question-generator",
     "tables_directory": "fixtures/data/tables",
+    "offline_logical_forms_directory": "fixtures/data/logical_forms",
     "output_production_rules": true,
     "output_world": true
   },
-  "train_data_path": "fixtures/data/sample_data.jsonl",
-  "validation_data_path": "fixtures/data/sample_data.jsonl",
+  "train_data_path": "fixtures/data/sample_data.examples",
+  "validation_data_path": "fixtures/data/sample_data.examples",
   "model": {
     "type": "wtq-question-generator",
     "source_embedder": {
@@ -36,7 +37,7 @@
     "type": "bucket",
     "padding_noise": 0.0,
     "batch_size" : 80,
-    "sorting_keys": [["source_tokens", "num_tokens"]]
+    "sorting_keys": [["action_sequences", "num_fields"]]
   },
   "trainer": {
     "num_epochs": 2,
