@@ -32,6 +32,7 @@ class WikiTablesQuestionGeneratorReader(DatasetReader):
                  lazy: bool = False,
                  tables_directory: str = None,
                  offline_logical_forms_directory: str = None,
+                 max_num_logical_forms: int = 30,
                  tokenizer: Tokenizer = None,
                  question_token_indexers: Dict[str, TokenIndexer] = None,
                  rule_indexers: Dict[str, TokenIndexer] = None,
@@ -40,6 +41,7 @@ class WikiTablesQuestionGeneratorReader(DatasetReader):
         super().__init__(lazy=lazy)
         self._tables_directory = tables_directory
         self._offline_logical_forms_directory = offline_logical_forms_directory
+        self._max_num_logical_forms = max_num_logical_forms
         self._tokenizer = tokenizer or WordTokenizer(SpacyWordSplitter(pos_tags=True))
         self._question_token_indexers = question_token_indexers or {"tokens": SingleIdTokenIndexer("tokens")}
         self._rule_indexers = rule_indexers or {"tokens": SingleIdTokenIndexer("rules")}
@@ -74,7 +76,7 @@ class WikiTablesQuestionGeneratorReader(DatasetReader):
                         continue
                     logical_forms = None
                     with gzip.open(logical_forms_file, "rt") as lf_file:
-                        logical_forms = [x.strip() for x in lf_file.readlines()]
+                        logical_forms = [x.strip() for x in lf_file.readlines()][:self._max_num_logical_forms]
                     line_data["logical_form"] = logical_forms
                     data.append(line_data)
             logger.info(f"Skipped {num_examples_without_lf} out of {num_examples} examples")

@@ -15,8 +15,10 @@ from allennlp.semparse.domain_languages import WikiTablesLanguage
 @Model.register('wtq-question-generator')
 class WikiTablesQuestionGenerator(SimpleSeq2Seq):
     """
-    Simple encoder decoder model that encodes a logical form using a tree LSTM and greedily decodes the utterance
-    using an LSTM with attention over encoder outputs.
+    Simple encoder decoder model that encodes a logical form using a tree LSTM and decodes the utterance
+    using an LSTM with attention over encoder outputs. At training time, the model takes pairs of logical forms and
+    utterances, where each instance has multiple logical forms, and a single utterance. The objective is to
+    maximize the likelihood of the utterance marginalized over all logical forms.
     """
     def __init__(self,
                  vocab: Vocabulary,
@@ -95,7 +97,7 @@ class WikiTablesQuestionGenerator(SimpleSeq2Seq):
                 world: List[WikiTablesLanguage] = None) -> List[Dict[str, torch.Tensor]]:
         # pylint: disable=arguments-differ
         # shape: (batch_size, max_num_inputs, max_input_sequence_length, encoder_input_dim)
-        embedded_input = self._source_embedder(action_sequences)
+        embedded_input = self._source_embedder(action_sequences, num_wrapping_dims=1)
         # shape: (batch_size, max_num_inputs, max_input_sequence_length)
         source_mask = util.get_text_field_mask(action_sequences, num_wrapping_dims=1)
         if self._encode_trees:

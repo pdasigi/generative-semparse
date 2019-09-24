@@ -14,6 +14,7 @@
         "tokens": {
           "type": "embedding",
           "embedding_dim": 25,
+	  "vocab_namespace": "rules",
           "trainable": true
         }
       }

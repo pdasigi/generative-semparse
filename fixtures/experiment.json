@@ -3,6 +3,7 @@
     "type": "wikitables-question-generator",
     "tables_directory": "fixtures/data/tables",
     "offline_logical_forms_directory": "fixtures/data/logical_forms",
+    "max_num_logical_forms": 20,
     "output_production_rules": true,
     "output_world": true
   },
@@ -15,6 +16,7 @@
         "tokens": {
           "type": "embedding",
           "embedding_dim": 25,
+	  "vocab_namespace": "rules",
           "trainable": true
         }
       }

@@ -18,13 +18,14 @@ def make_bottom_up_action_sequence(top_down_sequence: List[str],
     bottom_up_sequence: List[str] = []
     for action in top_down_sequence:
         left_side, right_side = action.split(' -> ')
-        # Keep popping until we see the left side at the top of the stack.
-        while nonterminal_stack[-1][0] != left_side:
+        # Keep popping until we see an unexpanded nonterminal.
+        while nonterminal_stack[-1][1] is not None:
             next_action = nonterminal_stack[-1][1]
-            assert next_action is not None
             bottom_up_sequence.append(next_action)
             nonterminal_stack = nonterminal_stack[:-1]
-        # We see the left side at the top now. We pop it.
+        # We see an unexpanded nonterminal. It should match the left side of the current action.
+        assert nonterminal_stack[-1][0] == left_side, f"Error processing: {top_down_sequence}"
+        # Left side matches. We pop it.
         nonterminal_stack = nonterminal_stack[:-1]
         #Now we can process the right side.
         if not is_nonterminal(right_side) and not right_side[0] == '[':
@@ -42,7 +43,7 @@ def make_bottom_up_action_sequence(top_down_sequence: List[str],
                 nonterminal_stack.append((symbol, None))
 
     for _, action in reversed(nonterminal_stack):
-        assert action is not None
+        assert action is not None, f"Error processing: {top_down_sequence}"
         bottom_up_sequence.append(action)
 
     return bottom_up_sequence
