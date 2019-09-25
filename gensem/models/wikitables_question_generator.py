@@ -77,8 +77,7 @@ class WikiTablesQuestionGenerator(SimpleSeq2Seq):
                 candidate_output_dict.update(predictions)
             candidate_outputs.append(candidate_output_dict)
 
-        output_dict = self._merge_output_dicts(candidate_outputs,
-                                               actions)
+        output_dict = self._merge_output_dicts(candidate_outputs)
         if not self.training and target_tokens and self._bleu:
             # shape: (batch_size, beam_size, max_sequence_length)
             top_k_predictions = output_dict["predictions"]
@@ -144,11 +143,10 @@ class WikiTablesQuestionGenerator(SimpleSeq2Seq):
         state["decoder_context"] = state["encoder_outputs"].new_zeros(batch_size, self._decoder_output_dim)
         return state
 
-    def _merge_output_dicts(self,
-                            candidate_output_dicts: List[Dict[str, torch.Tensor]],
-                            actions: List[List[List[ProductionRule]]]) -> Dict[str, torch.Tensor]:
-        # TODO (pradeep): Also take the worlds and reconstruct logical forms. The issue is that the actions are
-        # bottom-up, and DomainLanguage instances can only handle top-down sequences.
+    def _merge_output_dicts(self, candidate_output_dicts: List[Dict[str, torch.Tensor]]) -> Dict[str,
+                                                                                                 torch.Tensor]:
+        # TODO (pradeep): Also take the worlds and actions and reconstruct logical forms. The issue is that the
+        # actions are bottom-up, and DomainLanguage instances can only handle top-down sequences.
         # TODO (pradeep): These losses are batch averaged. Is that a problem?
         # (max_num_inputs,)
         losses = torch.stack([output["loss"] for output in candidate_output_dicts])
@@ -190,14 +188,9 @@ class WikiTablesQuestionGenerator(SimpleSeq2Seq):
                                                   for log_probs in candidate_log_probabilities]).transpose(0, 1)
             # (batch_size, max_num_inputs)
             _, ranked_input_indices = torch.sort(best_log_probabilities, 1, descending=True)
-            ranked_action_sequences: List[List[List[str]]] = []
-            for instance_actions, instance_ranked_indices in zip(actions, ranked_input_indices):
-                ranked_action_sequences.append([])
-                indices_list = [int(x) for x in instance_ranked_indices.data.cpu()]
-                for index in indices_list:
-                    action_sequence = [action.rule for action in instance_actions[index]]
-                    ranked_action_sequences[-1].append(action_sequence)
-            output_dict["ranked_action_sequences"] = ranked_action_sequences
+            int_ranked_input_indices = [[int(x) for x in instance_indices.data.cpu()]
+                                        for instance_indices in ranked_input_indices]
+            output_dict["sorted_logical_form_indices"] = int_ranked_input_indices
         return output_dict
 
     @staticmethod
