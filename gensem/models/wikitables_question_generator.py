@@ -51,13 +51,10 @@ class WikiTablesQuestionGenerator(SimpleSeq2Seq):
     @overrides
     def forward(self,  # type: ignore
                 action_sequences: Dict[str, torch.LongTensor],
-                target_tokens: Dict[str, torch.LongTensor] = None,
-                actions: List[List[List[ProductionRule]]] = None,
-                world: List[WikiTablesLanguage] = None) -> Dict[str, torch.Tensor]:
+                actions: List[List[List[ProductionRule]]],
+                world: List[WikiTablesLanguage],
+                target_tokens: Dict[str, torch.LongTensor] = None) -> Dict[str, torch.Tensor]:
         # pylint: disable=arguments-differ
-        if self._encode_trees:
-            assert actions is not None and world is not None, \
-                    "Need actions and world to be passed to forward to encode trees!"
         # TODO (pradeep): It might be more efficient to also have the decoder process multiple input sequences
         # instead of having ``_encode`` return multiple states, and looping over them below.
         states = self._encode(action_sequences,
@@ -80,7 +77,8 @@ class WikiTablesQuestionGenerator(SimpleSeq2Seq):
                 candidate_output_dict.update(predictions)
             candidate_outputs.append(candidate_output_dict)
 
-        output_dict = self._merge_output_dicts(candidate_outputs)
+        output_dict = self._merge_output_dicts(candidate_outputs,
+                                               actions)
         if not self.training and target_tokens and self._bleu:
             # shape: (batch_size, beam_size, max_sequence_length)
             top_k_predictions = output_dict["predictions"]
@@ -146,8 +144,11 @@ class WikiTablesQuestionGenerator(SimpleSeq2Seq):
         state["decoder_context"] = state["encoder_outputs"].new_zeros(batch_size, self._decoder_output_dim)
         return state
 
-    @staticmethod
-    def _merge_output_dicts(candidate_output_dicts: List[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
+    def _merge_output_dicts(self,
+                            candidate_output_dicts: List[Dict[str, torch.Tensor]],
+                            actions: List[List[List[ProductionRule]]]) -> Dict[str, torch.Tensor]:
+        # TODO (pradeep): Also take the worlds and reconstruct logical forms. The issue is that the actions are
+        # bottom-up, and DomainLanguage instances can only handle top-down sequences.
         # TODO (pradeep): These losses are batch averaged. Is that a problem?
         # (max_num_inputs,)
         losses = torch.stack([output["loss"] for output in candidate_output_dicts])
@@ -156,19 +157,47 @@ class WikiTablesQuestionGenerator(SimpleSeq2Seq):
         output_dict = {"loss": -util.logsumexp(-losses)}
         if "class_log_probabilities" in candidate_output_dicts[0]:
             # This means we have an k-best list of sequences.
+            # List of (batch_size, k) tensors.
+            candidate_log_probabilities = [output["class_log_probabilities"] for output in candidate_output_dicts]
             # (batch_size, max_num_inputs * k)
-            log_probabilities = torch.cat([output["class_log_probabilities"]
-                                           for output in candidate_output_dicts], dim=-1)
-            # (batch_size, max_num_inputs * k, sequence_length)
-            predictions = torch.cat([output["predictions"] for output in candidate_output_dicts],
-                                    dim=1)
+            log_probabilities = torch.cat(candidate_log_probabilities, dim=-1)
+            # We now merge the predictions. One thing to worry about here is that the sequence lengths may not
+            # necessarily be equal to the ``max_decoding_steps``. Given a batch of instances, the BeamSearch stops
+            # searching if all instances have reached end states. So we need to do some padding here before
+            # concatenating output candidates from different input sequences.
+            padded_predictions: List[torch.Tensor] = []
+            for candidate_output_dict in candidate_output_dicts:
+                candidate_predictions = candidate_output_dict["predictions"]
+                batch_size, num_sequences, sequence_length = candidate_predictions.size()
+                if sequence_length < self._max_decoding_steps:
+                    padding_length = self._max_decoding_steps - sequence_length
+                    padding = candidate_predictions.new_full((batch_size, num_sequences, padding_length),
+                                                             self._end_index)
+                    candidate_predictions = torch.cat([candidate_predictions, padding], dim=2)
+                padded_predictions.append(candidate_predictions)
+            # (batch_size, max_num_inputs * k, max_decoding_steps)
+            predictions = torch.cat(padded_predictions, dim=1)
             sorted_log_probabilities, indices = torch.sort(log_probabilities, descending=True)
-            _, _, sequence_length = predictions.size()
-            # (batch_size, max_num_inputs * k, sequence_length)
-            indices_for_selection = indices.unsqueeze(-1).repeat_interleave(sequence_length, dim=2)
+            # (batch_size, max_num_inputs * k, max_decoding_steps)
+            indices_for_selection = indices.unsqueeze(-1).repeat_interleave(self._max_decoding_steps, dim=2)
             sorted_predictions = predictions.gather(1, indices_for_selection)
             output_dict["class_log_probabilities"] = sorted_log_probabilities
             output_dict["predictions"] = sorted_predictions
+
+            # Now we rank the action sequences according to the log probabilities of their best decoded sequences.
+            # (batch_size, max_num_inputs)
+            best_log_probabilities = torch.stack([log_probs[:, 0]
+                                                  for log_probs in candidate_log_probabilities]).transpose(0, 1)
+            # (batch_size, max_num_inputs)
+            _, ranked_input_indices = torch.sort(best_log_probabilities, 1, descending=True)
+            ranked_action_sequences: List[List[List[str]]] = []
+            for instance_actions, instance_ranked_indices in zip(actions, ranked_input_indices):
+                ranked_action_sequences.append([])
+                indices_list = [int(x) for x in instance_ranked_indices.data.cpu()]
+                for index in indices_list:
+                    action_sequence = [action.rule for action in instance_actions[index]]
+                    ranked_action_sequences[-1].append(action_sequence)
+            output_dict["ranked_action_sequences"] = ranked_action_sequences
         return output_dict
 
     @staticmethod

@@ -35,9 +35,7 @@ class WikiTablesQuestionGeneratorReader(DatasetReader):
                  max_num_logical_forms: int = 30,
                  tokenizer: Tokenizer = None,
                  question_token_indexers: Dict[str, TokenIndexer] = None,
-                 rule_indexers: Dict[str, TokenIndexer] = None,
-                 output_production_rules: bool = True,
-                 output_world: bool = True) -> None:
+                 rule_indexers: Dict[str, TokenIndexer] = None) -> None:
         super().__init__(lazy=lazy)
         self._tables_directory = tables_directory
         self._offline_logical_forms_directory = offline_logical_forms_directory
@@ -45,8 +43,6 @@ class WikiTablesQuestionGeneratorReader(DatasetReader):
         self._tokenizer = tokenizer or WordTokenizer(SpacyWordSplitter(pos_tags=True))
         self._question_token_indexers = question_token_indexers or {"tokens": SingleIdTokenIndexer("tokens")}
         self._rule_indexers = rule_indexers or {"tokens": SingleIdTokenIndexer("rules")}
-        self._output_production_rules = output_production_rules
-        self._output_world = output_world
 
     @overrides
     def _read(self, file_path: str):
@@ -130,23 +126,20 @@ class WikiTablesQuestionGeneratorReader(DatasetReader):
         if not action_sequences_list:
             return None
 
+        all_production_rule_fields: List[List[Field]] = []
+        for action_sequence in action_sequences_list:
+            all_production_rule_fields.append([])
+            for production_rule in action_sequence:
+                _, rule_right_side = production_rule.split(' -> ')
+                is_global_rule = not world.is_instance_specific_entity(rule_right_side)
+                field = ProductionRuleField(production_rule, is_global_rule=is_global_rule)
+                all_production_rule_fields[-1].append(field)
+        action_field = ListField([ListField(production_rule_fields) for production_rule_fields in
+                                  all_production_rule_fields])
+
         fields = {'action_sequences': ListField(action_sequence_fields_list),
-                  'target_tokens': question_field}
-
-        if self._output_world:
-            fields['world'] = MetadataField(world)
-
-        if self._output_production_rules:
-            all_production_rule_fields: List[List[Field]] = []
-            for action_sequence in action_sequences_list:
-                all_production_rule_fields.append([])
-                for production_rule in action_sequence:
-                    _, rule_right_side = production_rule.split(' -> ')
-                    is_global_rule = not world.is_instance_specific_entity(rule_right_side)
-                    field = ProductionRuleField(production_rule, is_global_rule=is_global_rule)
-                    all_production_rule_fields[-1].append(field)
-            action_field = ListField([ListField(production_rule_fields) for production_rule_fields in
-                                      all_production_rule_fields])
-            fields['actions'] = action_field
+                  'target_tokens': question_field,
+                  'world': MetadataField(world),
+                  'actions': action_field}
 
         return Instance(fields)
