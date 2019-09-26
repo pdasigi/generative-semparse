@@ -10,7 +10,7 @@ class TestWikiTablesQuestionGenerator(ModelTestCase):
         self.set_up_model("fixtures/experiment.json",
                           "fixtures/data/sample_data.jsonl")
 
-    @flaky(max_runs=4, min_passes=1)
+    @flaky
     def test_model_can_train_save_and_load(self):
         self.ensure_model_can_train_save_and_load(self.param_file)
 
